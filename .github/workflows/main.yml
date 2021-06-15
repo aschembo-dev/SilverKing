@@ -1,0 +1,57 @@
+name: Test
+on:
+  push:
+      
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: 'Log level'
+        required: true
+        default: 'debug'
+      tags:
+        description: 'Test scenario tags'
+
+
+jobs:
+
+  build:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+    
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS Credentials CodeGuru
+        uses: aws-actions/configure-aws-credentials@v1
+        if: ${{ always() }}
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Checkout the CodeGuru Reviewer Action repository
+        uses: actions/checkout@v2
+        if: ${{ always() }}
+        with:
+          repository: vijejain/cicd-actions-bugbash
+          ref: refs/heads/main
+          token: ${{ secrets.TOKEN }}   # Required for Private Beta
+          path: ./.github/vijejain/cicd-actions-bugbash
+          
+      - name: AWS CodeGuru Reviewer Scanner
+        uses: ./.github/vijejain/cicd-actions-bugbash
+        if: ${{ always() }}
+        with:
+          source_path: .
+          s3_bucket: codeguru-reviewer-test-cicd-bucket
+
+      - name: Upload review result
+        if: ${{ always() }}
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: codeguru-results.sarif.json
